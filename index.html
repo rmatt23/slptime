@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Productivity Scheduler</title>
+    <style>
+        /* Basic CSS for styling */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+        }
+        .container {
+            max-width: 450px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="time"], input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .patient-time-input {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .patient-time-input label {
+            width: 35%;
+            margin-bottom: 0;
+            font-weight: normal;
+        }
+        .patient-time-input input {
+            width: 65%;
+            margin-bottom: 0;
+            padding: 8px;
+        }
+        #patientTimesContainer {
+            border: 1px dashed #ccc;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #result {
+            margin-top: 25px;
+            padding: 15px;
+            border: 1px solid #28a745;
+            background-color: #d4edda;
+            color: #155724;
+            border-radius: 4px;
+            font-size: 1.1em;
+            text-align: center;
+            font-weight: bold;
+        }
+        #productivitySection {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #ccc;
+        }
+        #productivityResult {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #fff3cd; /* Light warning color */
+            border: 1px solid #ffc107;
+            color: #856404;
+            border-radius: 4px;
+            font-size: 1.1em;
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Dynamic Schedule & Productivity Calculator 🗓️</h1>
+
+        <label for="startTime">Start Time:</label>
+        <input type="time" id="startTime" value="09:00" required>
+
+        <label for="patientCount">Number of Patients:</label>
+        <input type="number" id="patientCount" min="1" value="3" required>
+        
+        <div id="patientTimesContainer">
+            <p>Enter number of patients to generate fields.</p>
+        </div>
+
+        <label for="breakTime">Scheduled Break/Lunch Time (Minutes):</label>
+        <input type="number" id="breakTime" min="0" value="30" required>
+
+        <button onclick="calculateEndTime()">Calculate Scheduled End Time</button>
+
+        <div id="result">
+            Enter your details and click 'Calculate Scheduled End Time'.
+        </div>
+
+        <div id="productivitySection" style="display:none;">
+            <h2>Calculate Productivity 📊</h2>
+            
+            <label for="actualEndTime">Actual Logout Time:</label>
+            <input type="time" id="actualEndTime" required>
+            
+            <button onclick="calculateProductivity()">Calculate Productivity</button>
+
+            <div id="productivityResult">
+                Enter the actual logout time to see your metrics.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let scheduledPatientDuration = 0; // Global variable to store calculated patient time
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const patientCountInput = document.getElementById('patientCount');
+            
+            generatePatientTimeFields(); 
+            
+            patientCountInput.addEventListener('input', generatePatientTimeFields);
+            patientCountInput.addEventListener('change', generatePatientTimeFields);
+        });
+
+        function generatePatientTimeFields() {
+            const count = parseInt(document.getElementById('patientCount').value);
+            const container = document.getElementById('patientTimesContainer');
+            container.innerHTML = ''; 
+            
+            if (isNaN(count) || count <= 0) {
+                container.innerHTML = '<p>Please enter a **positive number** of patients (1 or more).</p>';
+                return;
+            }
+
+            for (let i = 1; i <= count; i++) {
+                const div = document.createElement('div');
+                div.className = 'patient-time-input';
+
+                const label = document.createElement('label');
+                label.setAttribute('for', `timePatient${i}`);
+                label.textContent = `Patient ${i} Time (Min):`;
+
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.id = `timePatient${i}`;
+                input.min = '0'; 
+                input.value = '4 5'; 
+                input.required = true;
+                input.className = 'patient-duration';
+
+                div.appendChild(label);
+                div.appendChild(input);
+                container.appendChild(div);
+            }
+        }
+
+        // Helper function to format minutes into H:MM string
+        function formatMinutesToTime(totalMinutes) {
+            const totalHours = Math.floor(totalMinutes / 60);
+            const remainingMinutes = totalMinutes % 60;
+            return `${totalHours} hr${totalHours !== 1 ? 's' : ''} and ${remainingMinutes} min${remainingMinutes !== 1 ? 's' : ''}`;
+        }
+
+        // Helper function to convert HH:MM string to total minutes from midnight
+        function timeStringToMinutes(timeString) {
+            if (!timeString) return NaN;
+            const [hours, minutes] = timeString.split(':').map(Number);
+            return (hours * 60) + minutes;
+        }
+
+        function calculateEndTime() {
+            const startTimeInput = document.getElementById('startTime').value;
+            const patientDurations = document.querySelectorAll('.patient-duration'); 
+            const breakTimeInput = document.getElementById('breakTime');
+            const resultDiv = document.getElementById('result');
+            const productivitySection = document.getElementById('productivitySection');
+            
+            let totalPatientDurationMinutes = 0;
+            let isValid = true;
+
+            const breakDurationMinutes = parseInt(breakTimeInput.value);
+            if (isNaN(breakDurationMinutes) || breakDurationMinutes < 0) { isValid = false; }
+
+            if (!startTimeInput) {
+                isValid = false;
+            } else {
+                patientDurations.forEach(input => {
+                    const duration = parseInt(input.value);
+                    if (isNaN(duration) || duration < 0) { isValid = false; }
+                    totalPatientDurationMinutes += duration;
+                });
+            }
+
+            if (!isValid) {
+                resultDiv.textContent = "Please ensure all fields contain valid numbers (0 or positive) and start time is set.";
+                resultDiv.style.backgroundColor = '#f8d7da';
+                resultDiv.style.borderColor = '#dc3545';
+                resultDiv.style.color = '#721c24';
+                productivitySection.style.display = 'none';
+                return;
+            }
+            
+            // Store patient duration for later productivity calculation
+            scheduledPatientDuration = totalPatientDurationMinutes; 
+
+            // 2. Calculate TOTAL Duration (Patient Time + Break Time)
+            const totalDurationMinutes = totalPatientDurationMinutes + breakDurationMinutes;
+
+            // Calculate End Time
+            const startTotalMinutes = timeStringToMinutes(startTimeInput);
+            const endTotalMinutes = startTotalMinutes + totalDurationMinutes;
+
+            // Convert End Total Minutes back to HH:MM format
+            const endHours = Math.floor(endTotalMinutes / 60) % 24; 
+            const endMinutes = endTotalMinutes % 60;
+
+            const formattedHours = endHours.toString().padStart(2, '0');
+            const formattedMinutes = endMinutes.toString().padStart(2, '0');
+
+            // Handle days passed
+            const daysPassed = Math.floor(endTotalMinutes / (24 * 60));
+            let daySuffix = "";
+            if (daysPassed > 0) {
+                daySuffix = ` (Next Day${daysPassed > 1 ? ' + ' + (daysPassed - 1) + ' day(s)' : ''})`;
+            }
+            
+            // 4. Display Result & Show Productivity Section
+            resultDiv.innerHTML = `
+                **SCHEDULED END TIME:** ${formattedHours}:${formattedMinutes}${daySuffix}<br>
+                **Total Duration (including break):** ${formatMinutesToTime(totalDurationMinutes)} **(${totalDurationMinutes} minutes)**<br>
+                (Patient Time: ${totalPatientDurationMinutes} min, Break Time: ${breakDurationMinutes} min)
+            `;
+            resultDiv.style.backgroundColor = '#d4edda';
+            resultDiv.style.borderColor = '#28a745';
+            resultDiv.style.color = '#155724';
+            
+            // Show the new field for actual end time
+            productivitySection.style.display = 'block';
+            
+            // Optionally pre-fill the Actual Logout Time with the Scheduled End Time
+            document.getElementById('actualEndTime').value = `${formattedHours}:${formattedMinutes}`;
+        }
+
+        function calculateProductivity() {
+            const actualEndTimeInput = document.getElementById('actualEndTime').value;
+            const startTimeInput = document.getElementById('startTime').value;
+            const productivityResultDiv = document.getElementById('productivityResult');
+            const breakTimeInput = document.getElementById('breakTime');
+            
+            if (!actualEndTimeInput || !startTimeInput || scheduledPatientDuration === 0) {
+                productivityResultDiv.textContent = "Please run the main calculation first and enter the actual logout time.";
+                return;
+            }
+
+            const breakDurationMinutes = parseInt(breakTimeInput.value);
+            
+            // Convert times to minutes from midnight
+            const startMinutes = timeStringToMinutes(startTimeInput);
+            const actualEndMinutes = timeStringToMinutes(actualEndTimeInput);
+            
+            // Handle potential overnight shift for actual duration
+            let totalActualMinutes = actualEndMinutes - startMinutes;
+            if (totalActualMinutes < 0) {
+                totalActualMinutes += (24 * 60); // Add 24 hours
+            }
+
+            // Actual Productive Time = (Total Actual Minutes) - (Break Time)
+            const actualProductiveMinutes = totalActualMinutes - breakDurationMinutes;
+            
+            // Productivity calculation: (Scheduled Patient Time / Actual Productive Time) * 100
+            let productivityPercentage = 0;
+
+            if (actualProductiveMinutes > 0) {
+                productivityPercentage = (scheduledPatientDuration / actualProductiveMinutes) * 100;
+            } else if (scheduledPatientDuration > 0) {
+                 // If work was scheduled but actual productive time was zero or negative, productivity is 0%
+                productivityPercentage = 0; 
+            } else {
+                 // If no work was scheduled, productivity is 100%
+                 productivityPercentage = 100;
+            }
+            
+            // Determine Time Variance
+            const variance = scheduledPatientDuration - actualProductiveMinutes;
+
+            let varianceMessage = "";
+            if (variance > 0) {
+                varianceMessage = `You spent **${formatMinutesToTime(variance)}** less time on patient care than scheduled.`;
+            } else if (variance < 0) {
+                varianceMessage = `You spent **${formatMinutesToTime(Math.abs(variance))}** more time on patient care than scheduled.`;
+            } else {
+                varianceMessage = "You spent exactly the scheduled time on patient care!";
+            }
+            
+            productivityResultDiv.innerHTML = `
+                **Actual Productive Time:** ${formatMinutesToTime(actualProductiveMinutes)}<br>
+                **Scheduled Patient Time:** ${formatMinutesToTime(scheduledPatientDuration)}<br>
+                ---<br>
+                **Productivity Ratio:** **${productivityPercentage.toFixed(1)}%**<br>
+                ${varianceMessage}
+            `;
+
+            // Adjust result box color based on productivity
+            if (productivityPercentage >= 95) {
+                productivityResultDiv.style.backgroundColor = '#d4edda'; // Green for high productivity
+                productivityResultDiv.style.borderColor = '#28a745';
+                productivityResultDiv.style.color = '#155724';
+            } else if (productivityPercentage >= 80) {
+                productivityResultDiv.style.backgroundColor = '#fff3cd'; // Yellow for moderate
+                productivityResultDiv.style.borderColor = '#ffc107';
+                productivityResultDiv.style.color = '#856404';
+            } else {
+                productivityResultDiv.style.backgroundColor = '#f8d7da'; // Red for low
+                productivityResultDiv.style.borderColor = '#dc3545';
+                productivityResultDiv.style.color = '#721c24';
+            }
+        }
+    </script>
+</body>
+</html>
